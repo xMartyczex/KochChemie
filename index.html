@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Koch Chemie • Pomocník + Checklist 1.0</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+    :root { --y: #ffd200; --b: #0a0a0a; --g: #22c55e; --r: #ef4444; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background:#000; color:#eee; min-height:100vh; overflow-x:hidden; }
+    body::before { content:''; position:absolute; inset:0; background:repeating-linear-gradient(45deg, transparent, transparent 30px, rgba(255,210,0,0.03) 30px, rgba(255,210,0,0.03) 60px); animation:w 40s linear infinite; }
+    @keyframes w { to { transform:translateX(60px); } }
+
+    header { background:linear-gradient(90deg,#000,#222,#000); padding:35px 20px; text-align:center; position:relative; overflow:hidden; }
+    header::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,210,0,0.2),transparent); animation:shine 8s infinite; left:-100%; }
+    @keyframes shine { 50% { left:100%; } }
+    .logo { font-size:40px; font-weight:900; color:var(--y); letter-spacing:5px; text-shadow:0 0 20px rgba(255,210,0,0.6); }
+    .logo span { color:#fff; }
+
+    .menu-btn, .checklist-btn { position:fixed; top:18px; z-index:1001; background:var(--y); color:#000; border:none; width:56px; height:56px; border-radius:50%; cursor:pointer; font-size:22px; box-shadow:0 4px 25px rgba(255,210,0,0.5); transition:.3s; }
+    .menu-btn { right:18px; }
+    .checklist-btn { right:84px; }
+    .menu-btn:hover, .checklist-btn:hover { transform:scale(1.12); }
+
+    .sidebar, .checklist { position:fixed; top:0; right:-100%; width:100%; max-width:420px; height:100vh; background:rgba(10,10,10,0.98); backdrop-filter:blur(14px); z-index:1000; transition:right .45s cubic-bezier(0.68,-0.55,0.27,1.55); padding:28px; overflow-y:auto; box-shadow:-10px 0 40px rgba(0,0,0,0.8); }
+    .sidebar.open, .checklist.open { right:0; }
+    .sidebar-header, .checklist-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:15px; border-bottom:1px solid #333; }
+    .sidebar-header h3, .checklist-header h3 { color:var(--y); font-size:24px; }
+    .close-btn { background:none; border:none; color:#ccc; font-size:34px; cursor:pointer; }
+
+    .inventory-counter { text-align:center; margin:20px 0; color:var(--g); font-weight:700; font-size:19px; background:#111; padding:12px; border-radius:12px; }
+
+    .category-list { list-style:none; margin:25px 0; }
+    .category-item { padding:18px 20px; margin:10px 0; background:#1a1a1a; border-radius:16px; cursor:pointer; transition:.3s; font-weight:600; display:flex; align-items:center; gap:14px; }
+    .category-item:hover, .category-item.active { background:var(--y); color:#000; }
+
+    .product-list { display:none; list-style:none; margin-top:15px; padding-left:8px; }
+    .product-list.active { display:block; animation:fadeIn .4s; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } }
+
+    .product-item { padding:16px 20px; margin:10px 0; background:#222; border-radius:14px; cursor:pointer; transition:.3s; display:flex; align-items:center; justify-content:space-between; border-left:5px solid transparent; }
+    .product-item:hover { background:#333; border-left-color:var(--y); }
+    .product-item.owned { background:#0a2e0a; border-left-color:var(--g); }
+    .product-item.owned::after { content:'Owned'; color:var(--g); font-weight:900; font-size:16px; }
+
+    /* === PROSTORNÝ CHECKLIST === */
+    .task-list { margin-top:15px; padding:0 8px; }
+    .task-item { padding:24px 22px; background:#1a1a1a; border-radius:20px; margin:20px 0; display:flex; align-items:center; gap:20px; cursor:pointer; transition:all .4s ease; border:1px solid #333; position:relative; overflow:hidden; }
+    .task-item::before { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background:linear-gradient(90deg,transparent,rgba(255,210,0,0.1),transparent); transition:left .8s; }
+    .task-item:hover::before { left:100%; }
+    .task-item.done { background:#0a2e0a; border-color:var(--g); }
+    .task-item .check { width:38px; height:38px; border:3px solid #555; border-radius:50%; flex-shrink:0; transition:all .3s; }
+    .task-item.done .check { background:var(--g); border-color:var(--g); position:relative; }
+    .task-item.done .check::after { content:'✓'; position:absolute; color:#000; font-weight:900; font-size:24px; top:50%; left:50%; transform:translate(-50%,-50%); }
+    .task-text { flex:1; line-height:1.55; }
+    .task-text strong { color:var(--y); font-size:18px; display:block; margin-bottom:4px; }
+    .task-text small { color:#aaa; font-size:14.5px; }
+
+    .progress-bar { height:12px; background:#333; border-radius:12px; overflow:hidden; margin:20px 0; }
+    .progress-fill { height:100%; width:0%; background:var(--g); transition:width .6s ease; }
+    .reset-btn { background:var(--r); color:#fff; border:none; padding:16px 20px; border-radius:16px; font-weight:700; cursor:pointer; width:100%; margin-top:30px; font-size:17px; }
+
+    .container { max-width:560px; margin:30px auto 100px; background:rgba(15,15,15,0.97); backdrop-filter:blur(16px); border-radius:26px; padding:40px; box-shadow:0 20px 80px rgba(0,0,0,0.7); border:1px solid rgba(255,210,0,0.3); position:relative; z-index:1; }
+    h2 { text-align:center; color:var(--y); font-size:30px; margin-bottom:12px; }
+    .subtitle { text-align:center; color:#aaa; margin-bottom:30px; font-size:17px; }
+
+    .mode-switch { display:flex; gap:12px; margin:35px 0; }
+    .mode-btn { flex:1; padding:20px; border-radius:16px; border:2px solid #333; background:#111; color:#ccc; font-weight:700; font-size:17px; transition:all .4s; }
+    .mode-btn.active { border-color:var(--y); background:var(--y); color:#000; box-shadow:0 0 30px rgba(255,210,0,0.5); transform:translateY(-6px); }
+
+    .quick-vol, .preset-buttons { display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:14px; margin:28px 0; }
+    .qv-btn, .preset-btn { padding:16px; background:#222; border:2px solid #444; border-radius:14px; color:#fff; font-weight:700; transition:.3s; text-align:center; }
+    .qv-btn.active, .qv-btn:hover, .preset-btn:hover { background:var(--y); color:#000; border-color:var(--y); }
+
+    .slider-box { margin:40px 0; }
+    .slider-label { display:flex; justify-content:space-between; align-items:center; font-size:19px; font-weight:600; margin-bottom:14px; }
+    .value { background:var(--y); color:#000; padding:8px 18px; border-radius:12px; font-weight:900; min-width:110px; text-align:center; }
+
+    input[type=range] { width:100%; height:14px; border-radius:10px; background:#333; -webkit-appearance:none; outline:none; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:42px; height:42px; border-radius:50%; background:var(--y); border:4px solid #000; box-shadow:0 4px 15px rgba(255,210,0,0.6); cursor:pointer; }
+
+    .output-box { background:linear-gradient(135deg,#111,#000); border:2px solid var(--y); border-radius:24px; padding:50px 30px; text-align:center; margin-top:45px; }
+    .big-num { font-size:62px; font-weight:900; color:var(--y); text-shadow:0 0 20px rgba(255,210,0,0.7); }
+    .tip { margin-top:20px; color:#999; font-size:15px; }
+
+    #qrcode { margin:30px auto; padding:20px; background:#fff; border-radius:16px; display:inline-block; }
+
+    @media (max-width:768px) {
+        .container { margin:20px 15px 90px; padding:30px 20px; }
+        .logo { font-size:34px; }
+        .checklist-btn { right:74px; }
+        .sidebar, .checklist { max-width:100%; }
+    }
+</style>
+</head>
+<body>
+
+<button class="menu-btn" onclick="toggleSidebar()">
+    <i class="fas fa-flask"></i>
+</button>
+<button class="checklist-btn" onclick="toggleChecklist()">
+    <i class="fas fa-clipboard-list"></i>
+</button>
+
+<!-- SIDEBAR – TVŮJ SKUTEČNÝ INVENTÁŘ -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <h3>Moje Chemie</h3>
+        <button class="close-btn" onclick="toggleSidebar()">×</button>
+    </div>
+    <div class="inventory-counter">Máš doma: <span id="owned-count">0</span> produktů</div>
+
+    <ul class="category-list">
+        <li class="category-item active" data-cat="universal">Univerzální čističe</li>
+        <li class="category-item" data-cat="wheels">Kola & Rezy</li>
+        <li class="category-item" data-cat="wash">Mytí & Pěna</li>
+        <li class="category-item" data-cat="interior">Interiér</li>
+        <li class="category-item" data-cat="exterior">Exteriér & Ošetření</li>
+    </ul>
+
+    <ul class="product-list active" id="universal">
+        <li class="product-item owned" data-ratio="10"  data-name="Green Star">Green Star (1:10 běžné)</li>
+        <li class="product-item owned" data-ratio="5"   data-name="Green Star Silné">Green Star – Silné (1:5)</li>
+        <li class="product-item owned" data-ratio="20"  data-name="Green Star Jemné">Green Star – Jemné (1:20)</li>
+        <li class="product-item owned" data-ratio="10"  data-name="Mehrzweckreiniger">Mehrzweckreiniger (1:10)</li>
+    </ul>
+    <ul class="product-list" id="wheels">
+        <li class="product-item owned" data-ratio="10" data-name="Reactive Wheel Cleaner">Reactive Wheel Cleaner (1:10)</li>
+        <li class="product-item owned" data-ratio="1"  data-name="Reactive Rust Remover">Reactive Rust Remover (nereděný)</li>
+    </ul>
+    <ul class="product-list" id="wash">
+        <li class="product-item owned" data-ratio="15" data-name="Gentle Snow Foam">Gentle Snow Foam (1:15 pěna)</li>
+        <li class="product-item owned" data-ratio="300" data-name="Autoshampoo">Autoshampoo (1:300)</li>
+        <li class="product-item owned" data-ratio="200" data-name="Nanomagic Shampoo">Nanomagic Shampoo (1:200)</li>
+        <li class="product-item owned" data-ratio="5" data-name="Insect Remover">Insect & Dirt Remover (1:5)</li>
+    </ul>
+    <ul class="product-list" id="interior">
+        <li class="product-item owned" data-ratio="20" data-name="Pol Star">Pol Star – textil/kůže (1:20)</li>
+        <li class="product-item owned" data-ratio="1" data-name="Top Star">Top Star – plasty interiér (nereděný)</li>
+    </ul>
+    <ul class="product-list" id="exterior">
+        <li class="product-item owned" data-ratio="1" data-name="Nanomagic Plastcare">Nanomagic Plastcare (nereděný)</li>
+    </ul>
+</div>
+
+<!-- CHECKLIST – LUXUSNĚ ROZTAŽENÝ -->
+<div class="checklist" id="checklist">
+    <div class="checklist-header">
+        <h3>Detailing Checklist</h3>
+        <button class="close-btn" onclick="toggleChecklist()">×</button>
+    </div>
+    <div style="text-align:center; margin:20px 0 30px;">
+        <div style="font-size:34px; color:var(--y); font-weight:900;">
+            <span id="done-count">0</span><span style="color:#666; font-size:26px;"> / <span id="total-count">21</span></span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+    </div>
+
+    <ul class="task-list">
+        <li class="task-item" data-id="1"><div class="check"></div><div class="task-text"><strong>Příprava</strong><br><small>Vyndat věci • vysát interiér • 2 kbelíky + 1 na kola • hadice ready</small></div></li>
+        <li class="task-item" data-id="2"><div class="check"></div><div class="task-text"><strong>Kola – čistič</strong><br><small>Reactive Wheel Cleaner 1:10 • 3–5 min působit</small></div></li>
+        <li class="task-item" data-id="3"><div class="check"></div><div class="task-text"><strong>Kola – kartáč</strong><br><small>Ovčí vlna Lemmen + Green Star na pneumatiky</small></div></li>
+        <li class="task-item" data-id="4"><div class="check"></div><div class="task-text"><strong>Opláchnout kola</strong></div></li>
+        <li class="task-item" data-id="5"><div class="check"></div><div class="task-text"><strong>Předmytí pěnou</strong><br><small>Gentle Snow Foam 1:15 • 5–8 min</small></div></li>
+        <li class="task-item" data-id="6"><div class="check"></div><div class="task-text"><strong>Opláchnout pěnu</strong></div></li>
+        <li class="task-item" data-id="7"><div class="check"></div><div class="task-text"><strong>Hmyz</strong><br><small>Insect & Dirt Remover 1:5–1:10</small></div></li>
+        <li class="task-item" data-id="8"><div class="check"></div><div class="task-text"><strong>Polétavá rez</strong><br><small>Reactive Rust Remover • max 5 min • OKAMŽITĚ opláchnout!</small></div></li>
+        <li class="task-item" data-id="9"><div class="check"></div><div class="task-text"><strong>2-kbelíkové mytí</strong><br><small>Nanomagic Shampoo 20–30 ml / 10 l • shora dolů</small></div></li>
+        <li class="task-item" data-id="10"><div class="check"></div><div class="task-text"><strong>Clay dekontaminace</strong><br><small>Lubrikant Green Star 1:30</small></div></li>
+        <li class="task-item" data-id="11"><div class="check"></div><div class="task-text"><strong>Finální oplach + listování</strong></div></li>
+        <li class="task-item" data-id="12"><div class="check"></div><div class="task-text"><strong>Sušení</strong><br><small>Mikrovlákno Koch – patovací technika</small></div></li>
+        <li class="task-item" data-id="13"><div class="check"></div><div class="task-text"><strong>Skla</strong><br><small>Koch Glass Cleaner + 2 utěrky</small></div></li>
+        <li class="task-item" data-id="14"><div class="check"></div><div class="task-text"><strong>Interiér vysát + parní čistič</strong></div></li>
+        <li class="task-item" data-id="15"><div class="check"></div><div class="task-text"><strong>Textil/Alcantara</strong><br><small>Pol Star 1:20 + kartáč Colourlock</small></div></li>
+        <li class="task-item" data-id="16"><div class="check"></div><div class="task-text"><strong>Plasty interiéru</strong><br><small>Mehrzweckreiniger 1:20</small></div></li>
+        <li class="task-item" data-id="17"><div class="check"></div><div class="task-text"><strong>Vnitřní plasty – Top Star</strong><br><small>Černý aplikátor Koch</small></div></li>
+        <li class="task-item" data-id="18"><div class="check"></div><div class="task-text"><strong>Vnější plasty</strong><br><small>Nanomagic Plastcare + semišová houba</small></div></li>
+        <li class="task-item" data-id="19"><div class="check"></div><div class="task-text"><strong>Fresh Up + provonění</strong></div></li>
+        <li class="task-item" data-id="20"><div class="check"></div><div class="task-text"><strong>Finální kontrola + foto</strong></div></li>
+    </ul>
+
+    <button class="reset-btn" onclick="resetChecklist()">Začít nové mytí od nuly</button>
+</div>
+
+<header>
+    <div class="logo">KOCH<span>CHEMIE</span></div>
+    <div style="margin-top:8px; opacity:0.9;">Profesionální detailingový pomocník v1.0</div>
+</header>
+
+<div class="container">
+    <h2>Přesný výpočet ředění</h2>
+    <div class="subtitle" id="selected-product">Vyber produkt nebo nastav ručně</div>
+
+    <div class="mode-switch">
+        <button class="mode-btn" id="jemne"><i class="fas fa-feather"></i> Jemné</button>
+        <button class="mode-btn active" id="bezne"><i class="fas fa-spray-can"></i> Běžné</button>
+        <button class="mode-btn" id="silne"><i class="fas fa-fire"></i> Silné</button>
+    </div>
+
+    <div class="quick-vol">
+        <button class="qv-btn" onclick="setVolume(500)">500 ml</button>
+        <button class="qv-btn active" onclick="setVolume(1000)">1 l</button>
+        <button class="qv-btn" onclick="setVolume(2000)">2 l</button>
+        <button class="qv-btn" onclick="setVolume(5000)">5 l</button>
+    </div>
+
+    <div class="preset-buttons">
+        <button class="preset-btn" onclick="setPreset(5)">1:5</button>
+        <button class="preset-btn" onclick="setPreset(10)">1:10</button>
+        <button class="preset-btn" onclick="setPreset(20)">1:20</button>
+        <button class="preset-btn" onclick="setPreset(50)">1:50</button>
+        <button class="preset-btn" onclick="setPreset(200)">1:200</button>
+        <button class="preset-btn" onclick="setPreset(300)">1:300</button>
+    </div>
+
+    <div class="slider-box">
+        <div class="slider-label"><span>Objem nádoby</span><div class="value" id="vol_label">1 000</div> ml</div>
+        <input type="range" id="volume" min="100" max="10000" step="50" value="1000">
+    </div>
+
+    <div class="slider-box">
+        <div class="slider-label"><span>Poměr ředění</span><div class="value">1:<span id="ratio_label">10</span></div></div>
+        <input type="range" id="ratio" min="1" max="500" value="10">
+    </div>
+
+    <div class="output-box">
+        <div><div class="big-num" id="water_out">909</div><div class="label">ml vody</div></div>
+        <div style="margin-top:30px;"><div class="big-num" id="chem_out">91</div><div class="label">ml chemie</div></div>
+        <div id="qrcode"></div>
+    </div>
+</div>
+
+<script>
+// Toggle
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('checklist').classList.remove('open'); }
+function toggleChecklist() { document.getElementById('checklist').classList.toggle('open'); document.getElementById('sidebar').classList.remove('open'); }
+
+// Kategorie v sidebaru
+document.querySelectorAll('.category-item').forEach(item => {
+    item.addEventListener('click', () => {
+        document.querySelectorAll('.category-item,.product-list').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        document.getElementById(item.dataset.cat).classList.add('active');
+    });
+});
+
+// Owned produkty + výběr
+function updateOwnedCount() {
+    const owned = document.querySelectorAll('.product-item.owned').length;
+    document.getElementById('owned-count').textContent = owned;
+    localStorage.setItem('koch-owned', JSON.stringify([...document.querySelectorAll('.product-item.owned')].map(el => el.dataset.name)));
+}
+document.querySelectorAll('.product-item').forEach(item => {
+    const saved = JSON.parse(localStorage.getItem('koch-owned') || '[]');
+    if (saved.includes(item.dataset.name)) item.classList.add('owned');
+
+    item.addEventListener('click', function(e) {
+        if (e.target.tagName !== 'I') {
+            const ratio = this.dataset.ratio;
+            document.getElementById('ratio').value = ratio;
+            document.getElementById('selected-product').textContent = `Zvoleno: ${this.dataset.name}`;
+            recalc();
+            toggleSidebar();
+        }
+    });
+
+    let timer;
+    item.addEventListener('mousedown', () => timer = setTimeout(() => { item.classList.toggle('owned'); updateOwnedCount(); }, 800));
+    item.addEventListener('mouseup', () => clearTimeout(timer));
+    item.addEventListener('mouseleave', () => clearTimeout(timer));
+    item.addEventListener('touchstart', e => { timer = setTimeout(() => { item.classList.toggle('owned'); updateOwnedCount(); e.preventDefault(); }, 800); });
+    item.addEventListener('touchend', () => clearTimeout(timer));
+});
+
+// Kalkulačka + QR
+function recalc() {
+    const vol = parseInt(document.getElementById("volume").value) || 1000;
+    const ratio = parseInt(document.getElementById("ratio").value) || 10;
+
+    document.getElementById("vol_label").textContent = vol.toLocaleString('cs-CZ');
+    document.getElementById("ratio_label").textContent = ratio;
+
+    const totalParts = ratio + 1;
+    const chem = Math.round(vol / totalParts);
+    const water = vol - chem;
+
+    document.getElementById("water_out").textContent = water.toLocaleString('cs-CZ');
+    document.getElementById("chem_out").textContent = chem.toLocaleString('cs-CZ');
+
+    // QR kód
+    const text = `${document.getElementById('selected-product').textContent}\n${chem} ml chemie + ${water} ml vody → ${vol} ml láhev (1:${ratio})`;
+    document.getElementById('qrcode').innerHTML = '';
+    new QRCode(document.getElementById('qrcode'), { text, width: 180, height: 180, colorDark: "#000", colorLight: "#fff" });
+}
+function setPreset(r) { document.getElementById("ratio").value = r; recalc(); }
+function setVolume(v) {
+    document.getElementById("volume").value = v;
+    document.querySelectorAll('.qv-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    recalc();
+}
+function setMode(mode) {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(mode).classList.add('active');
+    if (mode === "jemne") setPreset(20);
+    if (mode === "bezne") setPreset(10);
+    if (mode === "silne") setPreset(5);
+}
+
+document.getElementById("volume").oninput = recalc;
+document.getElementById("ratio").oninput = recalc;
+document.getElementById("jemne").onclick = () => setMode("jemne");
+document.getElementById("bezne").onclick = () => setMode("bezne");
+document.getElementById("silne").onclick = () => setMode("silne");
+
+// Checklist
+const tasks = document.querySelectorAll('.task-item');
+const totalTasks = tasks.length;
+document.getElementById('total-count').textContent = totalTasks;
+
+function updateProgress() {
+    const done = document.querySelectorAll('.task-item.done').length;
+    document.getElementById('done-count').textContent = done;
+    document.getElementById('progress').style.width = (done / totalTasks * 100) + '%';
+    localStorage.setItem('koch-checklist', JSON.stringify([...document.querySelectorAll('.task-item.done')].map(t => t.dataset.id)));
+}
+function resetChecklist() {
+    if (confirm('Opravdu vynulovat celý checklist?')) {
+        document.querySelectorAll('.task-item').forEach(t => t.classList.remove('done'));
+        updateProgress();
+    }
+}
+const savedTasks = JSON.parse(localStorage.getItem('koch-checklist') || '[]');
+tasks.forEach(task => {
+    if (savedTasks.includes(task.dataset.id)) task.classList.add('done');
+    task.addEventListener('click', () => { task.classList.toggle('done'); updateProgress(); });
+});
+
+// Klik mimo = zavřít
+document.addEventListener('click', e => {
+    const sidebar = document.getElementById('sidebar');
+    const checklist = document.getElementById('checklist');
+    const menuBtn = document.querySelector('.menu-btn');
+    const checkBtn = document.querySelector('.checklist-btn');
+    if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('open')) sidebar.classList.remove('open');
+    if (!checklist.contains(e.target) && !checkBtn.contains(e.target) && checklist.classList.contains('open')) checklist.classList.remove('open');
+});
+
+// Init
+recalc();
+updateProgress();
+updateOwnedCount();
+</script>
+</body>
+</html>
